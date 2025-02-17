@@ -1,99 +1,105 @@
-const express = require("express");
+const express = require('express');
 const app = express();
 const mongoose = require('mongoose');
-const {User} = require("./Models/User.js")
-const bcrypt = require("bcrypt")
-const jwt =  require("jsonwebtoken")
-const cors = require("cors")
-const morgan = require("morgan")
+const {User} = require('./models/User');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+const morgan = require('morgan');
 
-// connecting mongoose to the local storage
+
 mongoose.connect('mongodb://127.0.0.1:27017/ecommerceKle')
 .then(()=>{
-    console.log("Database is connected");
+    console.log("DB is connected");
+}).catch(()=>{
+    console.log("DB is not connected")
 })
-.catch(()=>{
-    console.log("database is not connected");
-})
-app.use(cors())
-app.use(morgan("dev"))
 
-// use middleware => for converting string to json
-app.use(express.json());
+app.use(cors());
+app.use(morgan("dev"));
+//for form method we use middleware 
+app.use(express.json())
 
-// task1 : route 1 for register
+//task-1 -> route for register
+app.post('/register', async (req, res) => {
+    try {
+        const { email, password, name } = req.body;
 
+        // Check if any field is missing
+        if (!email || !password || !name) {
+            return res.status(400).json({ message: "Some fields are missing" });
+        }
 
-app.post("/register",async (req,res)=>{
-    // when we send the using post method then the data will be in request body
+        // Check if the user already exists
+        const isUserAlreadyExist = await User.findOne({ email });
 
-    const {email,password,name} = req.body;
+        if (isUserAlreadyExist) {
+            return res.status(400).json({ message: "User already has an account" });
+        }
 
-    if(!email || !password || !name)
-    {
-        res.status(400).json({message:"Fill all the fields"})
-    }
-
-    // check if user is registered or not
-
-    const isUserAlreadyExist = await User.findOne({email})
-    if(isUserAlreadyExist) 
-    {
-
-        res.status(400).json({message:"user already registered"});
-        return;
-    }
-    else
-    {
-        // hashing password
+        // Hash the password
         const salt = bcrypt.genSaltSync(10);
-        const hashPassword = bcrypt.hashSync(password,salt);
+        const hashedPassword = bcrypt.hashSync(password, salt);
 
-        // generating JWT => superkey("string") try to sync["comapair"] with email 
-        const token = jwt.sign(email,"superKey")
-        {
-            await User.create({
-                name : name,
-                email : email,
-                password : hashPassword,
-                token : token
-            })
+        // Generate JWT token
+        const token = jwt.sign({ email }, "supersecret", { expiresIn: "1h" });
+
+        // Create user in database
+        await User.create({
+            name,
+            email,
+            password: hashedPassword,
+            token
+        });
+
+        return res.status(201).json({ message: "User created successfully" });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+//task 2 ->route for login
+app.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // Check if email or password is missing
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and Password are required" });
         }
-        return res.status(201).json({message:"user created Sucessfully"})
-    }
-        
-})
 
-// task2  :route 2 for login
+        // Find user by email
+        const user = await User.findOne({ email });
 
-app.post('/login',async(req,res) => {
-    const {email,password} = req.body;
-    const user = await user.findOne({email:email})
-    if (user) {
-        // if it true
-        // it matches the password 
-        const isPasswordMatched = bcrypt.compareSync(password,user.password) 
-
-        if (isPasswordMatched === true) {
-            res.status(200).json({
-                name:user.name,
-                token : user.token,
-                email: user.email
-            })
-        
+        if (!user) {
+            return res.status(400).json({ message: "User is not registered. Please register first." });
         }
-        else 
-        {
-            res.status(400).json({message : "Password isn't match"})
-        }  
-    }
-    else 
-    {
-        res.status(400).json({message : "user is not regestered.please regester"});
-    }
 
-})
+        //  Compare the entered password with the stored hashed password
+        const isPasswordMatched = bcrypt.compareSync(password, user.password);
 
-app.listen(8080,()=>{
-    console.log("Server get connected");   
+        if (!isPasswordMatched) {
+            return res.status(400).json({ message: "Password not matched" });
+        }
+
+        //  Successful login - Return user data
+        return res.status(200).json({
+            name: user.name,
+            email: user.email,
+            token: user.token
+        });
+
+    } catch (error) {
+        console.error("Error during login:", error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+
+
+let PORT = 8080;
+app.listen(PORT,()=>{
+    console.log(`server is connected to ${PORT}`);
 })
