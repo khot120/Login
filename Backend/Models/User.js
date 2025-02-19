@@ -1,27 +1,29 @@
 const mongoose = require("mongoose");
 
-const user_schema = new mongoose.Schema({
-    // Schama templete 
-    email : {
-        type : String,
-        required:true
-    },
-    password : {
-        type : String,
-        required : true
-    },
-    name : {
-        type : String,
-        required : true
-    },
-    // act like a primary key
-    token : {
-        type  : String,
-        required : true
-    }
-    
+const userSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+  name: String,
+  token: {
+    type: String,
+    required: true,
+  },
+  role: {
+    type: String,
+    default: "user",
+  },
+  cart: {
+    type: mongoose.Schema.ObjectId,
+    ref: "Cart",
+  },
 });
-// collection 
-const User = mongoose.model("User",user_schema) 
 
-module.exports = {User};
+const User = mongoose.model("User", userSchema);
+
+module.exports = { User };
