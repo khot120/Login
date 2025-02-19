@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const morgan = require('morgan');
 const {Product} = require('./Models/Product');
-const {Cart, cart} = require("./Models/Cart.js")
+const {Cart} = require("./Models/Cart.js")
 
 //for form method we use middleware 
 app.use(express.json())
@@ -303,67 +303,67 @@ app.get('/cart',async(req,res) => {
     res.status(200).json({cart:user.cart})
 })
 // task10 => to send the carted data
-
-app.post('/cart/add',async(req,res) => {
+app.post("/cart/add", async (req, res) => {
     const body = req.body;
-    const productArray = body.products;
+  
+    const productsArray = body.products;
     let totalPrice = 0;
-    try{
-    //   to iterate over the object id
-      for(let item of products) {
+  
+    try {
+      for (const item of productsArray) {
         const product = await Product.findById(item);
-          
-        if(product.price)
-        {
-            totalPrice += product.price
+        if (product) {
+          totalPrice += product.price;
         }
       }
-      const {token} = req.headers;
-      const decodedtoken = jwt.verify(token,"supersecret");
-      const user = await User.findOne({email : decodedtoken.email})
-      let cart;
+  
+      const { token } = req.headers;
+      const decodedToken = jwt.verify(token, "supersecret");
+      const user = await User.findOne({ email: decodedToken.email });
+  
       if (!user) {
-        res.status(404).json({message:"user not found"})
+        return res.status(404).json({ message: "User Not Found" });
       }
-      
-     if(user.cart)
-      {
-        cart = await Cart.findById(user.cart).populate("products")
-        // it gives a new array
-        const existingProductIds = cart.products.map((*product) => {
-            product._id.toString()
-        })
-        products.forEach(async(productId) => {
-            if(!existingProductIds.includes(productId))
-            {
-                cart.products.push(productId)
-                const product = await Product.findById(productId);
-                totalPrice += product.price;
-            }
-        })
+  
+      let cart;
+      if (user.cart) {
+        cart = await Cart.findById(user.cart).populate("products");
+        const existingProductIds = cart.products.map((product) =>
+          product._id.toString()
+        );
+  
+        productsArray.forEach(async (productId) => {
+          if (!existingProductIds.includes(productId)) {
+            cart.products.push(productId);
+            const product = await Product.findById(productId);
+            totalPrice += product.price;
+          }
+        });
+  
         cart.total = totalPrice;
         await cart.save();
-      }
-      else
-      {
+      } else {
         cart = new Cart({
-            products:productArray,
-            total : totalPrice
-
-        })
-        await Cart.save();
+          products: productsArray,
+          total: totalPrice,
+        });
+  
+        await cart.save();
         user.cart = cart._id;
-        await User.save();
+        await user.save();
       }
-
-      res.status(201).json({message:"Cart updated",
-        cart : cart
-      })
-    }catch(err){
-        console.log("Error Occured",err);
+  
+      res.status(201).json({
+        message: "Cart Updated Successfully",
+        cart: cart,
+      });
+    } catch (error) {
+        console.log(error);
         
+      res.status(500).json({ message: "Error Adding to Cart", error });
     }
-})
+  });
+  
 let PORT = 8080;
 app.listen(PORT,()=>{
     console.log(`server is connected to ${PORT}`);
